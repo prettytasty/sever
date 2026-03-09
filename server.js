@@ -58,7 +58,7 @@ io.on('connection', (socket) => {
     // THE KEY FIX: relay to ALL other players in the room, including the id of who moved
     socket.to(currentRoom).emit('playerMoved', {
       id: socket.id,
-      x: data.x, y: data.y, z: data.z, yaw: data.yaw, held: data.held || null,
+      x: data.x, y: data.y, z: data.z, yaw: data.yaw, held: data.held || null, color: data.color || null,
       name: rooms[currentRoom].players[socket.id].name
     });
   });
