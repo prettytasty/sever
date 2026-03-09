@@ -53,12 +53,12 @@ io.on('connection', (socket) => {
     // Update stored position
     rooms[currentRoom].players[socket.id] = {
       ...rooms[currentRoom].players[socket.id],
-      x: data.x, y: data.y, z: data.z, yaw: data.yaw
+      x: data.x, y: data.y, z: data.z, yaw: data.yaw, held: data.held || null
     };
     // THE KEY FIX: relay to ALL other players in the room, including the id of who moved
     socket.to(currentRoom).emit('playerMoved', {
       id: socket.id,
-      x: data.x, y: data.y, z: data.z, yaw: data.yaw,
+      x: data.x, y: data.y, z: data.z, yaw: data.yaw, held: data.held || null,
       name: rooms[currentRoom].players[socket.id].name
     });
   });
