@@ -28,6 +28,7 @@ io.on('connection', (socket) => {
     rooms[code].players[socket.id] = { name: data.name || 'RAT', x: 0, y: 1, z: 5, yaw: 0 };
     socket.join(code);
     socket.emit('hosted', { code });
+    io.to(code).emit('playerList', rooms[code].players);
     console.log(`Room ${code} created by ${socket.id}`);
   });
 
@@ -79,4 +80,12 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`🐀 Rat Kebab Server running on port ${PORT}`));
+server.listen(PORT, () => {
+  console.log(`🐀 Rat Kebab Server running on port ${PORT}`);
+  // Keep-alive: log room count every 10 min to prevent sleep on some hosts
+  setInterval(() => {
+    const roomCount = Object.keys(rooms).length;
+    const playerCount = Object.values(rooms).reduce((s, r) => s + Object.keys(r.players).length, 0);
+    console.log(`[keepalive] rooms:${roomCount} players:${playerCount}`);
+  }, 10 * 60 * 1000);
+});
