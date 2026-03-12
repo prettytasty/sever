@@ -77,6 +77,11 @@ io.on('connection', (socket) => {
     socket.to(currentRoom).emit('rayHit', { targetId: data.targetId });
   });
 
+  socket.on('bulletHit', (data) => {
+    if (!currentRoom) return;
+    socket.to(currentRoom).emit('bulletHit', { targetId: data.targetId, damage: data.damage || 50 });
+  });
+
   // ── PLAYER disconnects ───────────────────────────────────────────
   socket.on('disconnect', () => {
     if (!currentRoom || !rooms[currentRoom]) return;
