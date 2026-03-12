@@ -64,6 +64,19 @@ io.on('connection', (socket) => {
     });
   });
 
+  // ── GRILL SYNC ────────────────────────────────────────────────────
+  socket.on('grillUpdate', (data) => {
+    if (!currentRoom) return;
+    socket.to(currentRoom).emit('grillUpdate', data);
+  });
+
+  // ── RAYGUN HIT ────────────────────────────────────────────────────
+  socket.on('rayHit', (data) => {
+    if (!currentRoom) return;
+    // Send to the specific target player
+    socket.to(currentRoom).emit('rayHit', { targetId: data.targetId });
+  });
+
   // ── PLAYER disconnects ───────────────────────────────────────────
   socket.on('disconnect', () => {
     if (!currentRoom || !rooms[currentRoom]) return;
