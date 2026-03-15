@@ -112,3 +112,27 @@ server.listen(PORT, () => {
     console.log(`[keepalive] rooms:${roomCount} players:${playerCount}`);
   }, 10 * 60 * 1000);
 });
+
+  // ── TV sync relay ─────────────────────────────────────────────────
+  socket.on('tvSync', (data) => {
+    if (!currentRoom) return;
+    socket.to(currentRoom).emit('tvSync', { state: data.state });
+  });
+
+  // ── Basket sync relay ─────────────────────────────────────────────
+  socket.on('basketSync', (data) => {
+    if (!currentRoom) return;
+    socket.to(currentRoom).emit('basketSync', { count: data.count });
+  });
+
+  // ── NPC sync relay ────────────────────────────────────────────────
+  socket.on('npcSync', (data) => {
+    if (!currentRoom) return;
+    socket.to(currentRoom).emit('npcSync', data);
+  });
+
+  // ── Customer kill relay ───────────────────────────────────────────
+  socket.on('customerKill', (data) => {
+    if (!currentRoom) return;
+    socket.to(currentRoom).emit('customerKill', { x: data.x, y: data.y, z: data.z });
+  });
