@@ -93,6 +93,16 @@ io.on('connection', (socket) => {
     socket.to(currentRoom).emit('npcSync', data);
   });
 
+  // ── Dropped item sync ─────────────────────────────────────────────
+  socket.on('itemDrop', (data) => {
+    if (!currentRoom) return;
+    socket.to(currentRoom).emit('itemDrop', data);
+  });
+  socket.on('itemPickup', (data) => {
+    if (!currentRoom) return;
+    socket.to(currentRoom).emit('itemPickup', data);
+  });
+
   // ── Disconnect ────────────────────────────────────────────────────
   socket.on('disconnect', () => {
     if (!currentRoom || !rooms[currentRoom]) return;
