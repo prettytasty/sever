@@ -98,9 +98,22 @@ io.on('connection', (socket) => {
     if (!currentRoom) return;
     socket.to(currentRoom).emit('itemDrop', data);
   });
+
   socket.on('itemPickup', (data) => {
     if (!currentRoom) return;
     socket.to(currentRoom).emit('itemPickup', data);
+  });
+
+  // ── Chat ──────────────────────────────────────────────────────────
+  socket.on('chat', (data) => {
+    if (!currentRoom || !rooms[currentRoom]) return;
+    const senderName = rooms[currentRoom].players[socket.id]?.name || 'RAT';
+    const text = (data.text || '').toString().slice(0, 200);
+    if (!text) return;
+    socket.to(currentRoom).emit('chat', {
+      name: senderName,
+      text: `${senderName}: ${text}`
+    });
   });
 
   // ── Disconnect ────────────────────────────────────────────────────
