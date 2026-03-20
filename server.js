@@ -141,6 +141,26 @@ io.on('connection', (socket) => {
     socket.to(currentRoom).emit('itemPickup', data);
   });
 
+  // ── REQUEST full state (player joining mid-game) ──────────────────
+  socket.on('requestState', () => {
+    if (!currentRoom || !rooms[currentRoom]) return;
+    const room = rooms[currentRoom];
+    if (room.tvState !== undefined) {
+      socket.emit('tvSync', { state: room.tvState });
+    }
+    if (room.basketCount !== undefined) {
+      socket.emit('basketSync', { count: room.basketCount });
+    }
+    if (room.lastNpcSync) {
+      socket.emit('npcSync', room.lastNpcSync);
+    }
+    if (room.drops) {
+      Object.values(room.drops).forEach(drop => {
+        socket.emit('itemDrop', drop);
+      });
+    }
+  });
+
   // ── CHAT ──────────────────────────────────────────────────────────
   socket.on('chat', (data) => {
     if (!currentRoom || !rooms[currentRoom]) return;
