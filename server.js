@@ -19,10 +19,11 @@ app.get('/', (req, res) => res.send('RAT KEBAB SERVER RUNNING 🐀'));
 io.on('connection', (socket) => {
   let currentRoom = null;
 
+  // ── HOST creates a room ──────────────────────────────────────────
   socket.on('host', (data) => {
     const code = generateCode();
     currentRoom = code;
-    rooms[code] = { players: {} };
+    rooms[code] = { players: {}, drops: {}, tvState: 0, basketCount: 8, lastNpcSync: null, grillState: null };
     rooms[code].players[socket.id] = { name: data.name || 'RAT', x: 0, y: 1, z: 5, yaw: 0 };
     socket.join(code);
     socket.emit('hosted', { code });
@@ -30,17 +31,39 @@ io.on('connection', (socket) => {
     console.log(`Room ${code} created by ${socket.id}`);
   });
 
+  // ── PLAYER joins a room ──────────────────────────────────────────
   socket.on('join', (data) => {
     const code = (data.code || '').toUpperCase().trim();
-    if (!rooms[code]) { socket.emit('joinError', 'Room not found! Check the code.'); return; }
+    if (!rooms[code]) {
+      socket.emit('joinError', 'Room not found! Check the code.');
+      return;
+    }
     currentRoom = code;
     rooms[code].players[socket.id] = { name: data.name || 'RAT', x: 0, y: 1, z: 5, yaw: 0 };
     socket.join(code);
     socket.emit('joined', { code });
     io.to(code).emit('playerList', rooms[code].players);
     console.log(`${socket.id} joined room ${code}`);
+
+    // Send cached state to new player immediately
+    const room = rooms[code];
+    if (room.tvState !== undefined) {
+      socket.emit('tvSync', { state: room.tvState });
+    }
+    if (room.basketCount !== undefined) {
+      socket.emit('basketSync', { count: room.basketCount });
+    }
+    if (room.lastNpcSync) {
+      socket.emit('npcSync', room.lastNpcSync);
+    }
+    if (room.drops) {
+      Object.values(room.drops).forEach(drop => {
+        socket.emit('itemDrop', drop);
+      });
+    }
   });
 
+  // ── PLAYER sends position update ─────────────────────────────────
   socket.on('move', (data) => {
     if (!currentRoom || !rooms[currentRoom]) return;
     rooms[currentRoom].players[socket.id] = {
@@ -55,21 +78,25 @@ io.on('connection', (socket) => {
     });
   });
 
+  // ── GRILL sync ────────────────────────────────────────────────────
   socket.on('grillUpdate', (data) => {
     if (!currentRoom) return;
     socket.to(currentRoom).emit('grillUpdate', data);
   });
 
+  // ── RAYGUN hit ────────────────────────────────────────────────────
   socket.on('rayHit', (data) => {
     if (!currentRoom) return;
     socket.to(currentRoom).emit('rayHit', { targetId: data.targetId });
   });
 
+  // ── BULLET hit ────────────────────────────────────────────────────
   socket.on('bulletHit', (data) => {
     if (!currentRoom) return;
     socket.to(currentRoom).emit('bulletHit', { targetId: data.targetId, damage: data.damage || 50 });
   });
 
+  // ── CUSTOMER kill ─────────────────────────────────────────────────
   socket.on('customerKill', (data) => {
     if (!currentRoom) return;
     socket.to(currentRoom).emit('customerKill', { x: data.x, y: data.y, z: data.z });
@@ -78,45 +105,56 @@ io.on('connection', (socket) => {
   // ── TV sync ───────────────────────────────────────────────────────
   socket.on('tvSync', (data) => {
     if (!currentRoom) return;
+    if (rooms[currentRoom]) rooms[currentRoom].tvState = data.state;
     socket.to(currentRoom).emit('tvSync', { state: data.state });
   });
 
-  // ── Basket sync ───────────────────────────────────────────────────
+  // ── BASKET sync ───────────────────────────────────────────────────
   socket.on('basketSync', (data) => {
     if (!currentRoom) return;
+    if (rooms[currentRoom]) rooms[currentRoom].basketCount = data.count;
     socket.to(currentRoom).emit('basketSync', { count: data.count });
   });
 
-  // ── NPC sync ──────────────────────────────────────────────────────
+  // ── NPC sync (customers + inspector + day/night) ──────────────────
   socket.on('npcSync', (data) => {
     if (!currentRoom) return;
+    if (rooms[currentRoom]) rooms[currentRoom].lastNpcSync = data;
     socket.to(currentRoom).emit('npcSync', data);
   });
 
-  // ── Dropped item sync ─────────────────────────────────────────────
+  // ── DROPPED item sync ─────────────────────────────────────────────
   socket.on('itemDrop', (data) => {
     if (!currentRoom) return;
+    if (rooms[currentRoom]) {
+      if (!rooms[currentRoom].drops) rooms[currentRoom].drops = {};
+      rooms[currentRoom].drops[data.id] = data;
+    }
     socket.to(currentRoom).emit('itemDrop', data);
   });
 
   socket.on('itemPickup', (data) => {
     if (!currentRoom) return;
+    if (rooms[currentRoom] && rooms[currentRoom].drops) {
+      delete rooms[currentRoom].drops[data.id];
+    }
     socket.to(currentRoom).emit('itemPickup', data);
   });
 
-  // ── Chat ──────────────────────────────────────────────────────────
+  // ── CHAT ──────────────────────────────────────────────────────────
   socket.on('chat', (data) => {
     if (!currentRoom || !rooms[currentRoom]) return;
     const senderName = rooms[currentRoom].players[socket.id]?.name || 'RAT';
     const text = (data.text || '').toString().slice(0, 200);
     if (!text) return;
-    socket.to(currentRoom).emit('chat', {
+    // Send to everyone INCLUDING sender so they see their own message
+    io.to(currentRoom).emit('chat', {
       name: senderName,
       text: `${senderName}: ${text}`
     });
   });
 
-  // ── Disconnect ────────────────────────────────────────────────────
+  // ── PLAYER disconnects ───────────────────────────────────────────
   socket.on('disconnect', () => {
     if (!currentRoom || !rooms[currentRoom]) return;
     const name = rooms[currentRoom].players[socket.id]?.name || '?';
@@ -124,6 +162,7 @@ io.on('connection', (socket) => {
     console.log(`${name} left room ${currentRoom}`);
     if (Object.keys(rooms[currentRoom].players).length === 0) {
       delete rooms[currentRoom];
+      console.log(`Room ${currentRoom} deleted (empty)`);
     } else {
       io.to(currentRoom).emit('playerLeft', { id: socket.id });
       io.to(currentRoom).emit('playerList', rooms[currentRoom].players);
