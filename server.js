@@ -159,9 +159,18 @@ io.on('connection', (socket) => {
         socket.emit('itemDrop', drop);
       });
     }
+    if (room.weather !== undefined) {
+      socket.emit('weatherSync', { rain: room.weather });
+    }
   });
 
   // ── CHAT ──────────────────────────────────────────────────────────
+  socket.on('weatherSync', (data) => {
+    if (!currentRoom) return;
+    if (rooms[currentRoom]) rooms[currentRoom].weather = data.rain;
+    socket.to(currentRoom).emit('weatherSync', { rain: data.rain });
+  });
+
   socket.on('chat', (data) => {
     if (!currentRoom || !rooms[currentRoom]) return;
     const senderName = rooms[currentRoom].players[socket.id]?.name || 'RAT';
